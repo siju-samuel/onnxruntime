@@ -42,6 +42,7 @@ static void RegisterMinMaxScalarFeaturizerVer1();
 static void RegisterMissingDummiesFeaturizerVer1();
 static void RegisterOneHotEncoderFeaturizerVer1();
 static void RegisterRobustScalarFeaturizerVer1();
+static void RegisterStandardScaleWrapperFeaturizerVer1();
 static void RegisterStringFeaturizerVer1();
 static void RegisterTimeSeriesImputerFeaturizerVer1();
 
@@ -59,6 +60,7 @@ void RegisterMSFeaturizersSchemas() {
   RegisterMissingDummiesFeaturizerVer1();
   RegisterOneHotEncoderFeaturizerVer1();
   RegisterRobustScalarFeaturizerVer1();
+  RegisterStandardScaleWrapperFeaturizerVer1();
   RegisterStringFeaturizerVer1();
   RegisterTimeSeriesImputerFeaturizerVer1();
 }
@@ -825,6 +827,63 @@ void RegisterRobustScalarFeaturizerVer1() {
               propagateShapeFromInputToOutput(ctx, 1, 0);
             }
 
+          });
+}
+
+void RegisterStandardScaleWrapperFeaturizerVer1() {
+  static const char* doc = R"DOC(
+        Standardize features by removing the mean and scaling to unit variance based on input flag with_mean and with_std
+        standard score of a sample x is calculated as
+          z = (x - u) / s
+        where u is the mean of the training samples or 0 if with_mean is false, and s is the standard deviation of the training samples or 1 if with_std is false
+
+        C++-style pseudo signature:
+          template <typeanem T> double(T const &value);
+
+        Examples:
+          Given the training data [0, 0, 1, 1];
+            mean: 0.5
+            std: 0.5
+
+          execute(2) = (2 - 0.5) / 0.5 = 3 if with_mean is true and with_std is true
+          execute(2) = (2 - 0.5) / 1 = 1.5 if with_mean is true and with_std is false
+          execute(2) = (2 - 0) / 0.5 = 4 if with_mean is false and with_std is true
+          execute(2) = (2 - 0) / 1 = 2 if with_mean is false and with_std is false
+  )DOC";
+
+  MS_FEATURIZERS_OPERATOR_SCHEMA(StandardScaleWrapperTransformer)
+      .SinceVersion(1)
+      .SetDomain(kMSFeaturizersDomain)
+      .SetDoc(doc)
+      .Input(
+          0,
+          "State",
+          "State generated during training that is used for prediction",
+          "T0")
+      .Input(
+          1,
+          "Input",
+          "No information is available",
+          "InputT")
+      .Output(
+          0,
+          "Output",
+          "No information is available",
+          "tensor(double)")
+      .TypeConstraint(
+          "T0",
+          {"tensor(uint8)"},
+          "No information is available")
+      .TypeConstraint(
+          "InputT",
+          {"tensor(int8)", "tensor(int16)", "tensor(int32)", "tensor(int64)", "tensor(uint8)", "tensor(uint16)", "tensor(uint32)", "tensor(uint64)", "tensor(float)", "tensor(double)"},
+          "No information is available")
+      .TypeAndShapeInferenceFunction(
+          [](ONNX_NAMESPACE::InferenceContext& ctx) {
+            propagateElemTypeFromDtypeToOutput(ctx, ONNX_NAMESPACE::TensorProto_DataType_DOUBLE, 0);
+            if (hasInputShape(ctx, 1)) {
+              propagateShapeFromInputToOutput(ctx, 1, 0);
+            }
           });
 }
 
